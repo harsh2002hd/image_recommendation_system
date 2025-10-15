@@ -1,0 +1,153 @@
+{% extends 'recommendation/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="section-title">
+            <h1>Recommended Images</h1>
+            <p class="text-muted">Based on your reference images</p>
+        </div>
+    </div>
+</div>
+
+{% if user.is_authenticated %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <button class="btn btn-primary" id="refreshBtn">
+                    <i class="bi bi-arrow-repeat"></i> Refresh Recommendations
+                </button>
+            </div>
+            <div>
+                <span class="text-muted">{{ recommendations|length }} images</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if recommendations %}
+<div class="row" id="recommendationsContainer">
+    {% for recommendation in recommendations %}
+    <div class="col-lg-4 col-md-6" data-position="{{ recommendation.position }}">
+        <div class="card recommendation-card">
+            <div class="similarity-badge">
+                {{ recommendation.similarity_score|floatformat:2 }}
+            </div>
+            <div class="image-container">
+                <img src="{{ recommendation.image.image_url }}" alt="{{ recommendation.image.title }}">
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">{{ recommendation.image.title }}</h5>
+                <p class="card-text text-muted">{{ recommendation.image.get_label_list|join:", "|truncatechars:50 }}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Position: {{ recommendation.position }}</small>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary next-btn" 
+                                data-session="{{ recommendation.session.id }}" 
+                                data-position="{{ recommendation.position }}">
+                            <i class="bi bi-arrow-right"></i> Next
+                        </button>
+                    </div>
+                </div>
+                <div class="mt-2">
+                    <select class="form-select form-select-sm collection-select" 
+                            data-image="{{ recommendation.image.id }}">
+                        <option value="">Add to collection...</option>
+                        {% for collection in request.user.collection_set.all %}
+                        <option value="{{ collection.id }}">{{ collection.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="bi bi-image text-muted" style="font-size: 3rem;"></i>
+    <h5 class="mt-3">No recommendations available</h5>
+    <p class="text-muted">Add some reference images (starred or liked) to generate recommendations</p>
+    <a href="{% url 'dashboard' %}" class="btn btn-primary">Go to Dashboard</a>
+</div>
+{% endif %}
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="bi bi-shield-lock text-primary" style="font-size: 3rem;"></i>
+                <h3 class="mt-3">Authentication Required</h3>
+                <p class="text-muted">Please log in to access the recommendation features.</p>
+                <a href="/admin/login/?next=/recommendations/" class="btn btn-primary">Login to Continue</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    // Handle "Next" button clicks
+    $('.next-btn').click(function() {
+        const session = $(this).data('session');
+        const position = $(this).data('position');
+        const card = $(this).closest('.col-lg-4');
+        
+        $.get(`/next/${session}/${position}/`, function(response) {
+            if (response.success) {
+                // Update the card with the next recommendation
+                card.find('img').attr('src', response.image_url);
+                card.find('img').attr('alt', response.image_title);
+                card.find('.card-title').text(response.image_title);
+                card.find('.similarity-badge').text(response.similarity_score.toFixed(2));
+                card.attr('data-position', response.position);
+                card.find('.next-btn').data('position', response.position);
+                card.find('.collection-select').data('image', response.image_id);
+            } else {
+                alert('No more recommendations available');
+            }
+        });
+    });
+    
+    // Handle "Add to Collection" dropdown changes
+    $('.collection-select').change(function() {
+        const imageId = $(this).data('image');
+        const collectionId = $(this).val();
+        const selectElement = $(this);
+        
+        if (collectionId) {
+            $.ajax({
+                url: '{% url "add_to_collection" %}',
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    image_id: imageId,
+                    collection_id: collectionId
+                }),
+                success: function(response) {
+                    if (response.success) {
+                        selectElement.prop('disabled', true);
+                        selectElement.siblings().remove(); // Remove any existing success messages
+                        selectElement.after('<span class="text-success ms-2"><i class="bi bi-check-circle"></i></span>');
+                    } else {
+                        alert('Error: ' + response.message);
+                    }
+                }
+            });
+        }
+    });
+    
+    // Handle refresh button
+    $('#refreshBtn').click(function() {
+        window.location.href = '{% url "generate_recommendations" %}';
+    });
+});
+</script>
+{% endblock %}

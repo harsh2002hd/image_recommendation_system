@@ -1,0 +1,237 @@
+{% extends 'recommendation/base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="section-title">
+            <h1>Dashboard</h1>
+            <p class="text-muted">Manage your collections and discover new images</p>
+        </div>
+    </div>
+</div>
+
+{% if user.is_authenticated %}
+<div class="row">
+    <!-- Reference Images Section -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Your Reference Images</h5>
+                    <span class="badge bg-primary">{{ reference_images|length }} images</span>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if reference_images %}
+                <div class="row">
+                    {% for ref_image in reference_images %}
+                    <div class="col-md-4 col-sm-6">
+                        <div class="card recommendation-card">
+                            <div class="image-container">
+                                <img src="{{ ref_image.image.image_url }}" alt="{{ ref_image.image.title }}">
+                            </div>
+                            <div class="card-body">
+                                <h6 class="card-title">{{ ref_image.image.title }}</h6>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="badge {% if ref_image.weight == 3 %}badge-starred{% else %}badge-liked{% endif %}">
+                                        {% if ref_image.weight == 3 %}Starred{% else %}Liked{% endif %}
+                                    </span>
+                                    <small class="text-muted">{{ ref_image.image.get_label_list|join:", "|truncatechars:20 }}</small>
+                                </div>
+                                <div class="mt-2">
+                                    <button class="btn btn-sm btn-outline-primary show-similar-btn w-100" 
+                                            data-image="{{ ref_image.image.id }}">
+                                        <i class="bi bi-arrow-right-circle"></i> Show Similar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-image text-muted" style="font-size: 3rem;"></i>
+                    <h5 class="mt-3">No reference images found</h5>
+                    <p class="text-muted">Star or like images to use them as references for recommendations</p>
+                    <a href="{% url 'browse_images' %}" class="btn btn-primary">
+                        <i class="bi bi-images"></i> Browse Images
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Collections Section -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Your Collections</h5>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createCollectionModal">
+                        <i class="bi bi-plus-lg"></i> New
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                {% if collections %}
+                <div class="list-group">
+                    {% for collection in collections %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">{{ collection.name }}</h6>
+                            <small class="text-muted">{{ collection.images.count }} images</small>
+                        </div>
+                        <div>
+                            <button class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="bi bi-collection text-muted" style="font-size: 2rem;"></i>
+                    <p class="mt-2 mb-0 text-muted">No collections yet</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Generate Recommendations Card -->
+        <div class="card mt-4">
+            <div class="card-body text-center">
+                <i class="bi bi-stars text-primary" style="font-size: 3rem;"></i>
+                <h5 class="mt-3">Get Recommendations</h5>
+                <p class="text-muted">Based on your reference images</p>
+                <a href="{% url 'generate_recommendations' %}" class="btn btn-primary w-100">
+                    <i class="bi bi-lightbulb"></i> Generate Recommendations
+                </a>
+            </div>
+        </div>
+        
+        <!-- Browse Images Card -->
+        <div class="card mt-4">
+            <div class="card-body text-center">
+                <i class="bi bi-images text-primary" style="font-size: 3rem;"></i>
+                <h5 class="mt-3">Browse All Images</h5>
+                <p class="text-muted">Discover and interact with all available images</p>
+                <a href="{% url 'browse_images' %}" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-search"></i> Browse Images
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create Collection Modal -->
+<div class="modal fade" id="createCollectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Collection</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createCollectionForm">
+                    <div class="mb-3">
+                        <label for="collectionName" class="form-label">Collection Name</label>
+                        <input type="text" class="form-control" id="collectionName" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createCollectionBtn">Create</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="bi bi-shield-lock text-primary" style="font-size: 3rem;"></i>
+                <h3 class="mt-3">Authentication Required</h3>
+                <p class="text-muted">Please log in to access the dashboard and recommendation features.</p>
+                <a href="/admin/login/?next=/" class="btn btn-primary">Login to Continue</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(document).ready(function() {
+    $('#createCollectionBtn').click(function() {
+        const collectionName = $('#collectionName').val();
+        if (collectionName.trim() === '') {
+            alert('Please enter a collection name');
+            return;
+        }
+        
+        $.post('{% url "create_collection" %}', {
+            name: collectionName,
+            csrfmiddlewaretoken: '{{ csrf_token }}'
+        }, function(response) {
+            if (response.success) {
+                $('#createCollectionModal').modal('hide');
+                $('#collectionName').val('');
+                location.reload();
+            } else {
+                alert('Error creating collection: ' + response.message);
+            }
+        });
+    });
+    
+    // Handle "Show Similar" button clicks
+    $('.show-similar-btn').click(function() {
+        const imageId = $(this).data('image');
+        const button = $(this);
+        const card = $(this).closest('.card');
+        const imgElement = card.find('.image-container img');
+        const titleElement = card.find('.card-title');
+        
+        // Disable button and show loading state
+        button.prop('disabled', true);
+        button.html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Finding...');
+        
+        $.get(`/similar/${imageId}/`, function(response) {
+            if (response.success) {
+                // Update the image and title with the similar image
+                imgElement.attr('src', response.image_url);
+                imgElement.attr('alt', response.image_title);
+                titleElement.text(response.image_title);
+                
+                // Show similarity score as a badge
+                let similarityBadge = card.find('.similarity-badge');
+                if (similarityBadge.length === 0) {
+                    card.find('.image-container').append(
+                        `<div class="similarity-badge">${response.similarity_score.toFixed(2)}</div>`
+                    );
+                } else {
+                    similarityBadge.text(response.similarity_score.toFixed(2));
+                }
+                
+                // Update button text
+                button.html('<i class="bi bi-arrow-right-circle"></i> Show Next Similar');
+            } else {
+                alert('Error: ' + response.message);
+            }
+            
+            // Re-enable button
+            button.prop('disabled', false);
+        }).fail(function() {
+            alert('Error finding similar image');
+            button.prop('disabled', false);
+            button.html('<i class="bi bi-arrow-right-circle"></i> Show Similar');
+        });
+    });
+});
+</script>
+{% endblock %}
